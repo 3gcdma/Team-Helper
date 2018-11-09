@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+
+  <!-- Bootstrap CSS CDN -->
+  <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.1.0/css/bootstrap.min.css" integrity="sha384-9gVQ4dYFwwWSjIDZnLEWnxCjeSWFphJiwGPXr1jddIhOegiu1FwO5qRGvFXOdJZ4"
+    crossorigin="anonymous">
+  <!-- Our Custom CSS -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/fullcalendar/3.9.0/fullcalendar.css" />
+  <link rel="stylesheet" href="./css/main.css">
+
+  <!-- Font Awesome JS -->
+  <script defer src="https://use.fontawesome.com/releases/v5.0.13/js/solid.js" integrity="sha384-tzzSw1/Vo+0N5UhStP3bvwWPq+uvzCMfrN1fEFe+xBmv1C/AtVX5K0uZtmcHitFZ"
+    crossorigin="anonymous"></script>
+  <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.2.0/css/all.css" integrity="sha384-hWVjflwFxL6sNzntih27bfxkr27PmbbK/iSvJ+a4+0owXq79v+lsFkW54bOGbiDQ"
+    crossorigin="anonymous">
+
+  <!-- FIRE BASE -->
+  <script src="/__/firebase/5.0.0/firebase-app.js"></script>
+  <script src="/__/firebase/5.0.0/firebase-auth.js"></script>
+  <script src="/__/firebase/5.0.0/firebase-database.js"></script>
+  <script src="/__/firebase/5.0.0/firebase-messaging.js"></script>
+  <script src="/__/firebase/5.0.0/firebase-functions.js"></script>
+  <script src="/__/firebase/init.js"></script>
+
+  <!-- jQuery first, then Popper.js, then Bootstrap JS -->
+  <script src="https://code.jquery.com/jquery-3.3.1.slim.min.js" integrity="sha384-q8i/X+965DzO0rT7abK41JStQIAqVgRVzpbzo5smXKp4YfRvH+8abtTE1Pi6jizo"
+    crossorigin="anonymous"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.3/umd/popper.min.js" integrity="sha384-ZMP7rVo3mIykV+2+9J3UJ46jBk0WLaUAdn689aCwoqbBJiSnjAK/l8WvCWPIPm49"
+    crossorigin="anonymous"></script>
+  <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.1.2/js/bootstrap.min.js" integrity="sha384-o+RDsa0aLu++PJvFqy8fFScvbHFLtbvScb8AjopnFD+iEQ7wo/CG0xlczd+2O/em"
+    crossorigin="anonymous"></script>
+
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.22.2/moment.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/fullcalendar/3.9.0/fullcalendar.min.js"></script>
+  <!--<script type="text/javascript" src="./locale/ko.js"></script>-->
+
+
+
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      font-size: 10px;
+    }
+
+
+    #calendar {
+      max-width: 600px;
+      margin: 10px auto;
+      padding: 0 10px;
+    }
+
+    .fc-toolbar h2 {
+      color: #FFFFFF;
+    }
+
+    .fc-day-number {
+      color: #FFFFFF !important;
+      font-weight: bold;
+    }
+
+    .fc-today {
+      background-color: lightsteelblue !important;
+    }
+  </style>
+</head>
+
+<body STYLE="background-color:transparent">
+
+
+  <div id='calendar'></div>
+
+  <script>
+    var data = firebase.database();
+    var auth = firebase.auth();
+    function getNowDate() {
+      var dt = new Date();
+      var month = dt.getMonth() + 1;
+      if (month < 10)
+        month = '0' + month.toString();
+      var day = dt.getDate();
+      if (day < 10)
+        day = '0' + day.toString();
+      var year = dt.getFullYear();
+      return year.toString() + '-' + month + '-' + day;
+    }
+
+    var color = new Array('#EFECB7', '#C3E6C1', '#E7CCE1', '#C6EFEF', '#C9D0EA', '#EFB7B7');
+    var i = 0;
+
+
+
+
+
+    $(document).ready(function () {
+      auth.onAuthStateChanged(function (user) {
+        if (user) {
+          data.ref('USER/' + user.uid + '/NOW_GROUP').on('child_changed', (snap) => {
+            if (typeof window.target == 'string') {
+              $('#calendar').fullCalendar('destroy')
+              data.ref(target).off();
+            }
+            window.target = 'GROUP/' + snap.val() + '/Calendar/';
+            data.ref(target).limitToLast(1000).on('child_added', (snap) => {
+              var eventData = {
+                title: snap.child('title').val(),
+                start: new Date(snap.child('startdate').val()),
+                end: new Date(snap.child('enddate').val()),
+                id: snap.child('id').val(),
+                color: snap.child('color').val()
+              };
+              $('#calendar').fullCalendar('renderEvent', eventData, true); // stick? = true
+            })
+            make_cal();
+
+          })
+        }
+      });
+    });
+
+    function make_cal() {
+      $('#calendar').fullCalendar({
+        header: {
+          left: 'prev',
+          center: 'title',
+          right: 'next'
+        },
+        defaultDate: getNowDate(),
+        navLinks: false, // can click day/week names to navigate views
+        selectable: true,
+        selectHelper: true,
+        select: function (start, end) {
+          var title = prompt('Event Title:');
+          var eventData;
+          if (title) {
+            eventData = {
+              title: title,
+              start: start,
+              end: end,
+              id: Date.now(),
+              color: color[i]
+            };
+            var start_ob = $.fullCalendar.formatDate(start, "YYYY-MM-DD HH:mm:ss");
+            var end_ob = $.fullCalendar.formatDate(end, "YYYY-MM-DD HH:mm:ss");
+
+            data.ref(target + eventData.id + '/').set({
+              //username: auth.currentUser,
+              title: title,
+              startdate: start_ob,
+              enddate: end_ob,
+              id: eventData.id,
+              color: color[i]
+            }, function (error) {
+              if (error) {
+                alert("fail." + error);
+              } else {
+                alert("Added Successfully");
+                if (i >= 5) {
+                  i = 0;
+                } else {
+                  i++;
+                }
+              }
+            });
+          }
+          $('#calendar').fullCalendar('unselect');
+        },
+        editable: true,
+        eventLimit: true, // allow "more" link when too many events
+        events: [],
+        eventClick: function (event) {
+          //key값이 dd인 데이터를 찾아서 제거
+          data.ref(target + event.id + '/').remove();
+          $('#calendar').fullCalendar('removeEvents', function (searchEvent) {
+            return searchEvent._id === event._id;
+          });
+        },
+        eventDrop: function (event) {
+          var start_ob = $.fullCalendar.formatDate(event.start, "YYYY-MM-DD HH:mm:ss");
+          var end_ob = $.fullCalendar.formatDate(event.end, "YYYY-MM-DD HH:mm:ss");
+          var title = event.title;
+          var stringid = String(event.id);
+          data.ref(target + stringid + '/').update({
+            startdate: start_ob,
+            enddate: end_ob
+          }, function (error) {
+            if (error) {
+              alert("fail." + error);
+            } else {
+              alert("Update Successfully");
+            }
+          });
+        },
+        eventResize: function (event) {
+          var start_ob = $.fullCalendar.formatDate(event.start, "YYYY-MM-DD HH:mm:ss");
+          var end_ob = $.fullCalendar.formatDate(event.end, "YYYY-MM-DD HH:mm:ss");
+          var title = event.title;
+          var stringid = String(event.id);
+          data.ref(target + stringid + '/').update({
+            startdate: start_ob,
+            enddate: end_ob
+          }, function (error) {
+            if (error) {
+              alert("fail." + error);
+            } else {
+              alert("Update Successfully");
+            }
+          });
+        },
+        dayRender: function (date, cell) {
+          $("th.fc-" + date.format('ddd').toLowerCase()).css("color", "#ffffff");
+
+        }
+
+
+      });
+
+    }
+  </script>
+
+
+
+</body>
+
+</html>

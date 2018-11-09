@@ -1,0 +1,35 @@
+<link href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.0/css/bootstrap.min.css" rel="stylesheet" id="bootstrap-css">
+<script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.0/js/bootstrap.min.js"></script>
+<script src="https://code.jquery.com/jquery-1.11.1.min.js"></script>
+
+<!-- Font Awesome JS -->
+<script defer src="https://use.fontawesome.com/releases/v5.0.13/js/solid.js" integrity="sha384-tzzSw1/Vo+0N5UhStP3bvwWPq+uvzCMfrN1fEFe+xBmv1C/AtVX5K0uZtmcHitFZ"
+  crossorigin="anonymous"></script>
+<link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.2.0/css/all.css" integrity="sha384-hWVjflwFxL6sNzntih27bfxkr27PmbbK/iSvJ+a4+0owXq79v+lsFkW54bOGbiDQ"
+  crossorigin="anonymous">
+<link rel="stylesheet" href="css/jbt.css" />
+<script src="jbt.js"></script>
+<script>
+  var openWin;
+
+  function btn1click() {
+    window.name = "parentForm";
+    // window.open("open할 window", "자식창 이름", "팝업창 옵션");
+    openWin = window.open("screen1.html",
+      "childForm", "width=400, height=80")
+
+  }
+</script>
+<style>
+  body{
+    padding:0px;
+  }
+</style>
+
+<body STYLE="background-color:transparent">
+
+  <button class="material-button" type="button" onclick="btn1click()">
+    <span class="fas fa-phone-volume fa-2x" aria-hidden="true"></span>
+  </button>
+
+</body>

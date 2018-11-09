@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+
+    <!-- Bootstrap CSS CDN -->
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.1.0/css/bootstrap.min.css" integrity="sha384-9gVQ4dYFwwWSjIDZnLEWnxCjeSWFphJiwGPXr1jddIhOegiu1FwO5qRGvFXOdJZ4"
+        crossorigin="anonymous">
+    <!-- Our Custom CSS -->
+
+    <link rel="stylesheet" href="./css/main.css">
+
+    <!-- Font Awesome JS -->
+    <script defer src="https://use.fontawesome.com/releases/v5.0.13/js/solid.js" integrity="sha384-tzzSw1/Vo+0N5UhStP3bvwWPq+uvzCMfrN1fEFe+xBmv1C/AtVX5K0uZtmcHitFZ"
+        crossorigin="anonymous"></script>
+    <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.2.0/css/all.css" integrity="sha384-hWVjflwFxL6sNzntih27bfxkr27PmbbK/iSvJ+a4+0owXq79v+lsFkW54bOGbiDQ"
+        crossorigin="anonymous">
+
+    <!-- FIRE BASE -->
+    <script src="/__/firebase/5.0.0/firebase-app.js"></script>
+    <script src="/__/firebase/5.0.0/firebase-auth.js"></script>
+    <script src="/__/firebase/5.0.0/firebase-database.js"></script>
+    <script src="/__/firebase/5.0.0/firebase-messaging.js"></script>
+    <script src="/__/firebase/5.0.0/firebase-functions.js"></script>
+    <script src="/__/firebase/init.js"></script>
+
+    <!-- jQuery first, then Popper.js, then Bootstrap JS -->
+    <script src="https://code.jquery.com/jquery-3.3.1.slim.min.js" integrity="sha384-q8i/X+965DzO0rT7abK41JStQIAqVgRVzpbzo5smXKp4YfRvH+8abtTE1Pi6jizo"
+        crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.3/umd/popper.min.js" integrity="sha384-ZMP7rVo3mIykV+2+9J3UJ46jBk0WLaUAdn689aCwoqbBJiSnjAK/l8WvCWPIPm49"
+        crossorigin="anonymous"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.1.2/js/bootstrap.min.js" integrity="sha384-o+RDsa0aLu++PJvFqy8fFScvbHFLtbvScb8AjopnFD+iEQ7wo/CG0xlczd+2O/em"
+        crossorigin="anonymous"></script>
+
+    <link rel="stylesheet" href="./css/scroll.css">
+    <style>
+        .col-white {
+            color: white;
+        }
+
+        .col-green {
+            color: #a8ff78;
+            /* fallback for old browsers */
+            color: -webkit-linear-gradient(to right, #78ffd6, #a8ff78);
+            /* Chrome 10-25, Safari 5.1-6 */
+            color: linear-gradient(to right, #78ffd6, #a8ff78);
+            /* W3C, IE 10+/ Edge, Firefox 16+, Chrome 26+, Opera 12+, Safari 7+ */
+        }
+    </style>
+</head>
+
+<body class="scrollbar scrollbar-near-moon thin" STYLE="background-color:transparent">
+    <table class="table table-condensed">
+
+        <tbody id="userlist">
+        </tbody>
+
+    </table>
+
+    <script>
+        var userlist = document.getElementById("userlist");
+        var auth = firebase.auth();
+        var data = firebase.database();
+        var target = '';
+
+        auth.onAuthStateChanged(function (user_) {
+            if (user_) {
+                console.log(user_);
+                data.ref('USER/' + user_.uid + '/NOW_GROUP').once('value').then((snap) => {
+                    //console.log(snap.val());
+                    gid = snap.val().name;
+                    target = 'GROUP/' + gid + '/member/';
+                    //console.log('멤버입니다.' + target);
+                    data.ref(target).on('child_added', (snap) => {
+                        //alert("DB ADDED");
+                        input_status(snap.val().name, snap.val().status);
+                    });
+
+                    data.ref(target).on('child_changed', (snap) => {
+                        //alert("DB CHANGED" + snap.val().name + ":" + snap.val().status);
+                        set_status(snap.val().name, snap.val().status);
+                    });
+                });
+            }
+        });
+        
+        function input_status(who, status) {
+            if (status == 'on') {
+                $("#userlist").append('<tr>' +
+                    '<td class="text-center col-white">' + who + '</td>' +
+                    '<td class="text-center" id="' + who + '">' +
+                    '<span class="col-green">ONLINE</span></td>' +
+                    '</tr>');
+            } else {
+                $("#userlist").append('<tr>' +
+                    '<td class="text-center col-white">' + who + '</td>' +
+                    '<td class="text-center" id="' + who + '">' +
+                    '<span>OFFLINE</span></td>' +
+                    '</tr>');
+            }
+
+        }
+
+        function set_status(who, status) {
+            var userdata = document.getElementById(who);
+            console.log(userdata.innerHTML);
+            if (status == 'on') {
+                userdata.innerHTML = '<span class="col-green">ONLINE</span></td>';
+            } else {
+                userdata.innerHTML = '<span>OFFLINE</span></td>';
+            }
+        }
+    </script>
+
+</body>
+
+</html>

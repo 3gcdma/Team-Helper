@@ -1,0 +1,683 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+
+  <title>TEAM Helper</title>
+  <link rel="icon" href="img/favicon.ico">
+
+  <!-- jQuery first, then Popper.js, then Bootstrap JS -->
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.3/umd/popper.min.js" integrity="sha384-ZMP7rVo3mIykV+2+9J3UJ46jBk0WLaUAdn689aCwoqbBJiSnjAK/l8WvCWPIPm49"
+    crossorigin="anonymous"></script>
+  <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.1.2/js/bootstrap.min.js" integrity="sha384-o+RDsa0aLu++PJvFqy8fFScvbHFLtbvScb8AjopnFD+iEQ7wo/CG0xlczd+2O/em"
+    crossorigin="anonymous"></script>
+
+  <!-- Bootstrap CSS CDN -->
+  <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.1.0/css/bootstrap.min.css" integrity="sha384-9gVQ4dYFwwWSjIDZnLEWnxCjeSWFphJiwGPXr1jddIhOegiu1FwO5qRGvFXOdJZ4"
+    crossorigin="anonymous">
+  <!-- Our Custom CSS -->
+  <link rel="stylesheet" href="./css/main.css">
+  <link rel="stylesheet" href="./css/loading.css">
+  <link rel="stylesheet" href="./css/scroll.css">
+  <link rel="stylesheet" href="./css/social.css">
+
+  <!-- Font Awesome JS -->
+  <script defer src="https://use.fontawesome.com/releases/v5.0.13/js/solid.js" integrity="sha384-tzzSw1/Vo+0N5UhStP3bvwWPq+uvzCMfrN1fEFe+xBmv1C/AtVX5K0uZtmcHitFZ"
+    crossorigin="anonymous"></script>
+  <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.2.0/css/all.css" integrity="sha384-hWVjflwFxL6sNzntih27bfxkr27PmbbK/iSvJ+a4+0owXq79v+lsFkW54bOGbiDQ"
+    crossorigin="anonymous">
+
+  <!-- FIRE BASE -->
+  <script src="/__/firebase/5.0.0/firebase-app.js"></script>
+  <script src="/__/firebase/5.0.0/firebase-auth.js"></script>
+  <script src="/__/firebase/5.0.0/firebase-database.js"></script>
+  <script src="/__/firebase/5.0.0/firebase-messaging.js"></script>
+  <script src="/__/firebase/5.0.0/firebase-functions.js"></script>
+  <script src="/__/firebase/init.js"></script>
+
+  <style>
+    body {
+      background: #283048;
+      /* fallback for old browsers */
+      background: -webkit-linear-gradient(to bottom, #859398, #283048);
+      /* Chrome 10-25, Safari 5.1-6 */
+      background: linear-gradient(to bottom, #859398, #283048);
+      /* W3C, IE 10+/ Edge, Firefox 16+, Chrome 26+, Opera 12+, Safari 7+ */
+    }
+
+    .col-white {
+      color: white;
+    }
+
+    .col-green {
+      color: #a8ff78;
+      /* fallback for old browsers */
+      color: -webkit-linear-gradient(to right, #78ffd6, #a8ff78);
+      /* Chrome 10-25, Safari 5.1-6 */
+      color: linear-gradient(to right, #78ffd6, #a8ff78);
+      /* W3C, IE 10+/ Edge, Firefox 16+, Chrome 26+, Opera 12+, Safari 7+ */
+    }
+
+    ul.timeline {
+      list-style-type: none;
+      position: relative;
+    }
+
+    ul.timeline:before {
+      content: ' ';
+      background: #d4d9df;
+      display: inline-block;
+      position: absolute;
+      left: 29px;
+      width: 2px;
+      height: 100%;
+      z-index: 400;
+    }
+
+    ul.timeline>li {
+      margin: 20px 0;
+      padding-left: 20px;
+    }
+
+    ul.timeline>li:before {
+      content: ' ';
+      background: white;
+      display: inline-block;
+      position: absolute;
+      border-radius: 50%;
+      border: 3px solid #22c0e8;
+      left: 20px;
+      width: 20px;
+      height: 20px;
+      z-index: 400;
+    }
+  </style>
+  <script>
+    var pivot_login = 1;
+    var pivot_group = 1;
+    var join_id; // 그룹가입할때 그룹 id
+    var join_name; // 그룹가입할때 그룹 이름
+    var auth = firebase.auth();
+    var database = firebase.database();
+    var myConnectionsRef;
+
+
+    function initApp() {
+      auth.onAuthStateChanged(function (user) {
+        if (user) {
+          add_group_btn();
+          make_home(); //수정
+
+          myConnectionsRef = database.ref();
+          database.ref('USER/' + auth.currentUser.uid).update({
+            status: 'on'
+          })
+          database.ref('USER/' + auth.currentUser.uid + '/NOW_GROUP').update({
+            name: 'null'
+          })
+
+          database.ref('USER/' + auth.currentUser.uid + '/NOW_GROUP').on('child_changed', (snap) => { // 멤버처리
+            //alert("DB CHANGED" + snap.val().name + ":" + snap.val().status);
+            if (typeof window.gid == 'string') {
+              database.ref('GROUP/' + gid + '/CHAT/').off();
+              database.ref('GROUP/' + gid + '/member/').off();
+
+              /*여기 아래부분에다가 리스너 off시키면 됨.*/
+            }
+            window.gid = snap.val();
+            var target = 'GROUP/' + gid + '/member/';
+
+            database.ref('GROUP/' + gid + '/CHAT/').limitToLast(1000).on('child_added', (snap) => {
+              input_text(snap.val().name, snap.val().text, snap.val().time);
+            })
+
+
+            database.ref(target).on('child_added', (snap) => {
+              input_status(snap.val().name, snap.val().status);
+            });
+
+            database.ref(target).on('child_changed', (snap) => {
+              set_status(snap.val().name, snap.val().status);
+            });
+          });
+
+          pivot_login = 0;
+          //그룹 모두 출석하고 여기서 초기화면 지정하면 됨.
+
+        } else {
+          if (pivot_login == 1) {
+            window.location = 'index.html';
+          }
+        }
+      });
+    }
+
+    ////////////////////////// 멤버목록
+    function input_status(who, status) {
+      if (status == 'on') {
+        $("#userlist").append('<tr>' +
+          '<td class="text-center col-white">' + who + '</td>' +
+          '<td class="text-center" id="' + who + '">' +
+          '<span class="col-green">ONLINE</span></td>' +
+          '</tr>');
+      } else {
+        $("#userlist").append('<tr>' +
+          '<td class="text-center col-white">' + who + '</td>' +
+          '<td class="text-center" id="' + who + '">' +
+          '<span>OFFLINE</span></td>' +
+          '</tr>');
+      }
+
+    }
+
+    function set_status(who, status) {
+      var userdata = document.getElementById(who);
+      if (status == 'on') {
+        userdata.innerHTML = '<span class="col-green">ONLINE</span></td>';
+      } else {
+        userdata.innerHTML = '<span>OFFLINE</span></td>';
+      }
+    }
+
+    // 로그아웃 리스너 처리함.
+    // stores the timestamp of my last disconnect (the last time I was seen online)
+    var connectedRef = database.ref('.info/connected');
+    connectedRef.on('value', function (snap) {
+      if (snap.val() === true) {
+        // When I disconnect, update the last time I was seen online
+        var st = 'USER/' + auth.currentUser.uid + '/status';
+        var target = 'USER/' + auth.currentUser.uid + '/NOW_GROUP/name';
+        var last_login = 'USER/' + auth.currentUser.uid + '/last_login';
+        var delete_data = {};
+        delete_data[st] = 'off';
+        delete_data[target] = 'null'
+        delete_data[last_login] = Date.now();
+        database.ref('USER/' + auth.currentUser.uid + '/GROUP_LIST/').once('value').then((snap) => {
+          snap.forEach((child) => {
+            delete_data['GROUP/' + child.key + '/member/' + auth.currentUser.uid + '/status'] = 'off';
+          })
+          myConnectionsRef.onDisconnect().update(delete_data);
+        })
+      }
+    });
+
+    // 로그아웃 버튼 액션 리스너 구현
+      function sign_out() {
+      firebase.auth().signOut().then(function () {
+        window.location = 'index.html';
+        console.log('Signed Out');
+      }, function (error) {
+        console.error('Sign Out Error', error);
+      });
+    }
+    
+
+    //모달
+    function search_group() {
+      var target = document.getElementById('search_text').value;
+      var st = "<select multiple class='form-control' id='sel2' size='10' onchange='select_group(this.value)'>";
+      database.ref('GROUP/').once('value').then((snap) => {
+        snap.forEach((child) => {
+          var gid = 'GROUP/' + child.key;
+          if (typeof (child.val().name) != 'undefined' && (target.length == 0 || child.val().name.includes(target)))
+            st += '<option value=' + child.key + '>' + child.val().name + '</option>';
+        })
+        st += '</select>';
+        document.getElementById('rmfnqfltmxm').innerHTML = st;
+      })
+
+    }
+
+    function select_group(value) {
+      $("#JOIN_GROUP").modal('hide');
+      var data = database.ref('GROUP/' + value);
+      join_id = value;
+      data.once('value').then((snap) => {
+        join_name = snap.val().name;
+        document.getElementById('group_name').innerHTML =
+          '<h4 class="modal-title" id="exampleModalLabel">' + snap.val().name +
+          '</h4>';
+        document.getElementById('group_summary').innerHTML = "<label for='sel2'>" + '그룹장 : ' + snap.val().master_name + '<br>그룹타입 : ' + snap.val().type + '<br>그룹설명 : ' + snap.val().summary +
+          "</label>";
+      })
+      pivot_group = 1;
+      $("#DETAIL_GROUP").modal('show');
+    }
+
+    function join_group_func() {
+      pivot_group = 0;
+      database.ref('USER/' + auth.currentUser.uid + '/GROUP_LIST/').once('value').then((
+        snap) => {
+        snap.forEach((child) => {
+          if (child.key == join_id) {
+            window.pivot_group = 1;
+            alert('이미 가입한 그룹입니다.');
+            $("#JOIN_GROUP").modal('show');
+          }
+        })
+
+        if (pivot_group == 0) {
+          database.ref('USER/' + auth.currentUser.uid + '/GROUP_LIST/' + join_id).update({
+            name: join_name
+          })
+          database.ref('GROUP/' + join_id + '/member/' + auth.currentUser.uid).set({
+            name: auth.currentUser.displayName,
+            status: 'on'
+          });
+          window.location.reload(true);
+        }
+        $("#DETAIL_GROUP").modal('hide');
+
+      })
+    }
+
+    // 그룹더하기
+
+    function add_group_btn() {
+      var sidebar_div = document.getElementById('sidebar');
+      var sidebar_html = '<div class="sidebar-header"><h3>Team Helper</h3></div>'
+      var home_btn = '</div>' +
+        '<ul class="list-unstyled components nav nav-tabs flex-column" role="tablist">' +
+        '<li>' +
+        '<a class="nav-link active" id="v-pills-home-tab" data-toggle="tab" href="#home_screen" role="tab" aria-controls="home" value = "null" name = "null" aria-selected="true" onclick="click_OK(this)">' +
+        '<i class="fas fa-home"></i> HOME' +
+        '</a>' +
+        '</li>';
+
+      sidebar_html += home_btn;
+
+
+      database.ref('USER/' + auth.currentUser.uid + '/GROUP_LIST/').once('value').then((snap) => {
+        snap.forEach((child) => {
+          database.ref('GROUP/' + child.key + '/member/' + auth.currentUser.uid).update({
+            status: 'on'
+          });
+          var group_btn = '<li>' +
+            '<a class="nav-link" id="v-pills-group1-tab" data-toggle="tab" href="#group1" role="tab" aria-controls="group1" name = "' + child.val().name + '"value="' + child.key + '" onclick="click_OK(this)">' +
+            '<i class="far fa-comment"></i> ' + child.val().name +
+            '</a>' +
+            '</li>';
+          /*수정한부분*/
+          sidebar_html += group_btn;
+        })
+        var join_btn = '<li>' +
+          '<a class="nav-link" id="v-pills-join-tab"  data-toggle="modal" data-target="#JOIN_GROUP" role="tab" aria-controls="join">' +
+          '<i class="fas fa-plus"></i> JOIN' +
+          '</a>' +
+          '</li>' +
+          '</ul>';
+
+        sidebar_html += join_btn;
+
+        sidebar_div.innerHTML = sidebar_html;
+
+        $("#loader_div").fadeOut();
+      })
+    }
+
+    //그룹버튼 눌렀을때 처리할 내용.//
+    function click_OK(data) {
+      $("#userlist").empty();
+      $("#chat_rom").empty();
+      database.ref('USER/' + auth.currentUser.uid + '/NOW_GROUP').update({
+        name: $(data).attr('value'),
+        code: $(data).attr('name')
+      }).then(() => {
+        document.getElementById('firepad_form').contentDocument.location.reload(true);
+        document.getElementById('storage_form').contentDocument.location.reload(true);
+
+      })
+    }
+
+    window.onload = function () {
+      initApp();
+      $(document).ready(function () {
+        $('#sidebarCollapse').on('click', function () {
+          $('#sidebar').toggleClass('active');
+          $(this).toggleClass('active');
+        });
+
+        $('#chat_btn').click(send_message);
+        $("#chat_input_message").keyup(function (e) { if (e.keyCode == 13) send_message(); });
+      });
+
+      $("#DETAIL_GROUP").on('hide.bs.modal', function (e) {
+        if (pivot_group == 1)
+          $("#JOIN_GROUP").modal('show');
+      });
+
+      $("#JOIN_GROUP").on('show.bs.modal', function (e) {
+        document.getElementById('search_text').value = '';
+        search_group();
+      });
+
+    };
+
+    function make_group() {
+      $("#JOIN_GROUP").modal('hide');
+      var popUrl = "a.html";	//팝업창에 출력될 페이지 URL
+      var popOption = "width=800, height=800, resizable=no, scrollbars=no, status=no;";    //팝업창 옵션(optoin)
+      window.open(popUrl, "", popOption);
+    }
+
+
+    //////////////채팅
+    function input_text(who, text, time) {
+      $("#chat_rom").append('<div class="message-box" style="padding: 5px;position: relative;border-radius: 10px;width: 96%;height: auto;min-height: 20px;margin: 0.5%;margin-bottom: 20px;color: #fff;border: 3px solid #fff;"><div class="user-information" style="position: relative;float: left;height: auto;width: 75px;margin-left: 5px;overflow: hidden;">' + who + '</div><div class="messgae-text" style = "margin-left: 83px;position: relative;height: 100%;width: 70%;margin-right: 0px;word-wrap: break-word;">' + text + '</div><div style = "position: absolute;top: 6px;right: 8px;">' + formatAMPM(time) + '</div></div>').scrollTop($("#chat_rom").prop('scrollHeight'));
+    }
+
+    function formatAMPM(date) {
+      var dt = new Date(date);
+      var hours = dt.getHours();
+      var minutes = dt.getMinutes();
+      var ampm = hours >= 12 ? 'PM' : 'AM';
+      hours = hours % 12;
+      hours = hours ? hours : 12; // the hour '0' should be '12'
+      minutes = minutes < 10 ? '0' + minutes : minutes;
+      var strTime = hours + ':' + minutes + ' ' + ampm;
+      return strTime;
+    }
+
+    function send_message() {
+      var text = $('#chat_input_message').val();
+      if (text != '') {
+        var time = Date.now();
+        database.ref('GROUP/' + gid + '/CHAT/' + time).set({
+          name: auth.currentUser.displayName,
+          time: time,
+          text: text
+        }).then(() => {
+        });
+        $('#chat_input_message').val('');
+      }
+    }
+
+    /////////////////채팅
+
+
+
+
+    function make_home() {
+      var home_title = document.getElementById('home');
+      var doc = document.getElementById('home_list');
+      database.ref('USER/' + auth.currentUser.uid).once('value').then((snap) => {
+        //home_title.innerText = snap.val().name + '님 오늘도 좋은하루 보내세요! ' + '마지막 로그인날짜 : ' + date_to_parse(new Date(snap.val().last_login), 1);
+        var to_do_list = new Array;
+        var to_read_list = new Array;
+
+        for (var prop in snap.val().GROUP_LIST) {
+          database.ref('GROUP/' + prop + '/').once('value').then((gsnap) => {
+
+            var cnt = 0;
+            for (var pprop in gsnap.val().CHAT) {
+              if (gsnap.val().CHAT[pprop].time > snap.val().last_login) {
+                cnt++;
+              }
+            }
+            to_read_list.push([gsnap.val().name, cnt]);
+
+            for (var pprop in gsnap.val().Calendar) {
+              var end = new Date(gsnap.val().Calendar[pprop].enddate);
+              var start = new Date(gsnap.val().Calendar[pprop].startdate);
+              if (end > Date.now() && start < Date.now()) {
+                doc.innerHTML += '<div class="card bg-light mb-3 text-center">'+
+                  '<div class="card-header">'+gsnap.val().name+'</div>'+
+                  '<div class="card-body">'+
+                  '<h4 class="card-title">'+gsnap.val().Calendar[pprop].title+'</h4>'+
+                  '<p class="card-text">'+date_to_parse(start)+' ~ '+date_to_parse(end)+'</p>'+
+                  '</div>'
+              }
+            }
+
+          })
+        }
+      })
+    }
+
+    function date_to_parse(dat, pivot){
+      var str = '';
+      str += dat.getYear()+1900 + '/' +(dat.getMonth()+1) + '/' +dat.getDate();
+      if(pivot == 1){
+        str += ' '+dat.getHours()+':'+dat.getMinutes()+':'+dat.getSeconds()
+      }
+      return str;
+    }
+  </script>
+</head>
+
+<body>
+  <!-- 그룹 가입 모달 -->
+  <div class="modal fade" id="JOIN_GROUP" tabindex="-1" role="dialog" aria-labelledby="exampleModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h4 class="modal-title" id="exampleModalLabel">그룹 가입</h4>
+          <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+            <span aria-hidden="true">&times;</span>
+          </button>
+        </div>
+        <div class="modal-body">
+          <form>
+            <div class="form-group">
+              <input type="text" class="form-control" placeholder="Search" id='search_text'>
+            </div>
+            <div class="form-group">
+              <label for='sel2'>그룹 목록</label>
+              <span id='rmfnqfltmxm'>
+              </span>
+            </div>
+          </form>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-primary" onclick="make_group()">그룹생성</button>
+          <button type="button" class="btn btn-primary" onclick="search_group()">검색</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 그룹 세부내용 모달 -->
+  <div class="modal fade" id="DETAIL_GROUP" tabindex="-1" role="dialog" aria-labelledby="exampleModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <div id="group_name"></div>
+          <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+            <span aria-hidden="true">&times;</span>
+          </button>
+        </div>
+        <div class="modal-body">
+          <form>
+            <div id='group_summary' class="form-group">
+              <label for='sel2'></label>
+            </div>
+          </form>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-primary" onclick="join_group_func()">그룹가입</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="wrapper">
+    <!-- Sidebar Holder -->
+    <nav id="sidebar">
+      <div class="sidebar-header">
+        <!--<h3>Team Helper</h3>-->
+        <img src="img/logo.png" class="img-fluid" alt="Responsive image">
+      </div>
+    </nav>
+    <!-- Page Content Holder -->
+    <div id="content">
+
+      <nav class="navbar navbar-expand-lg navbar-light">
+        <div class="container-fluid">
+
+          <button type="button" id="sidebarCollapse" class="navbar-btn">
+            <span></span>
+            <span></span>
+            <span></span>
+          </button>
+          <button class="btn btn-dark d-inline-block d-lg-none ml-auto" type="button" data-toggle="collapse"
+            data-target="#navbarSupportedContent" aria-controls="navbarSupportedContent" aria-expanded="false"
+            aria-label="Toggle navigation">
+            <i class="fas fa-align-justify"></i>
+          </button>
+
+          <div class="collapse navbar-collapse" id="navbarSupportedContent">
+            <ul class="nav navbar-nav ml-auto">
+              <li class="nav-item active">
+                <a class="nav-link" href="./index.html">HOME</a>
+              </li>
+              <li class="nav-item">
+                <a class="nav-link" href="javascript:sign_out()">LOGOUT</a>
+              </li>
+            </ul>
+          </div>
+        </div>
+      </nav>
+
+      <div class="tab-content">
+        <div class="tab-pane fade show active" id='home_screen' role="tabpanel">
+          <h5 id="home"></h5>
+          <div class="row">
+            <div class="col-md-5">
+              <h4 id='home_title'>Latest News</h4>
+              <div id='home_list'>
+              </div>
+            </div>
+            <div class="col-md-5">
+              <h4>Release Note</h4>
+              <div class="card text-white bg-dark mb-3 text-center">
+                <div class="card-header">Update</div>
+                <div class="card-body">
+                  <h4 class="card-title">TEAM HELPER Ver 1.0 Release!</h4>
+                  <p class="card-text">Congrtulation!! (2018/09/11)</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <ul class="socialIcons">
+            <li class="facebook"><a href="https://www.thinkcontest.com/"><i class="far fa-angry fa-lg"></i>씽굿</a></li>
+            <li class="twitter"><a href="https://onoffmix.com/"><i class="fas fa-bolt fa-lg"></i>onoffmix</a></li>
+            <li class="instagram"><a href="https://www.wevity.com/"><i class="fas fa-medal fa-lg"></i>WEVITY</a></li>
+            <li class="pinterest"><a href="https://www.kcdf.kr/kcdf/pn/contestexhibit/bbs/bbsList.do?bbs_cd_n=10"><i
+                  class="fas fa-book-open fa-lg"></i>KCDF</a></li>
+            <li class="steam"><a href="https://gongmo.incruit.com/"><i class="fas fa-box-open fa-lg"></i>Incruit</a></li>
+          </ul>
+
+        </div>
+
+
+        <div class="tab-pane fade" id="group1" role="tabpanel">
+          <div class="row">
+            <div class="col-md-9">
+              <nav>
+                <div class="nav nav-tabs" id="nav-tab" role="tablist">
+                  <a class="nav-item nav-link active" id="nav-chat-tab" data-toggle="tab" href="#nav-chat" role="tab"
+                    aria-controls="nav-chat" aria-selected="true">CHAT</a>
+                  <a class="nav-item nav-link" id="nav-pad-tab" data-toggle="tab" href="#nav-pad" role="tab"
+                    aria-controls="nav-pad" aria-selected="false">PAD</a>
+                  <a class="nav-item nav-link" id="nav-canvas-tab" data-toggle="tab" href="#nav-canvas" role="tab"
+                    aria-controls="nav-canvas" aria-selected="false">CANVAS</a>
+                  <a class="nav-item nav-link" id="nav-storage-tab" data-toggle="tab" href="#nav-storage" role="tab"
+                    aria-controls="nav-storage" aria-selected="false">STORAGE</a>
+                  <a class="nav-item nav-link d-md-none" id="nav-calander-tab" data-toggle="tab" href="#nav-calander"
+                    role="tab" aria-controls="nav-calander" aria-selected="false">CALANDAR</a>
+                </div>
+              </nav>
+
+              <div class="tab-content" id="nav-tabContent">
+                <div class="tab-pane fade show active" id="nav-chat" role="tabpanel" aria-labelledby="nav-chat-tab">
+                  <div width="100%" height="800px">
+
+                    <div class="container-fluid" width="100%" style="height: 800px;padding: 0px; ">
+                      <div class="text-area scrollbar scrollbar-near-moon thin" id="chat_rom" style="width: 100%;height: 94%;overflow-y: scroll;margin-right: 0px;">
+                      </div>
+                      <div class="input-group" style="position: absolute;bottom: 1%;width: 97%;padding-left: 1%;padding-right: 1%;">
+                        <input id='chat_input_message' type="text" class="form-control" placeholder="Send Message..."
+                          style="background: rgba(0, 0, 0, 0);color : #fff">
+                        <span class="input-group-btn">
+                          <button id='chat_btn' class="btn btn-default" type="button" style="background: rgba(0, 0, 0, 0.1);color : #fff">전송</button>
+                        </span>
+                      </div>
+                      <!-- /input-group -->
+                    </div>
+
+                  </div>
+                </div>
+
+                <div class="tab-pane fade" id="nav-pad" role="tabpanel" aria-labelledby="nav-pad-tab">
+                  <iframe id='firepad_form' src='./firepad.html' width="100%" height="800px" frameBorder="0"></iframe>
+                </div>
+
+                <div class="tab-pane fade" id="nav-canvas" role="tabpanel" aria-labelledby="nav-canvas-tab">
+                  <iframe id='canavs_form' src='./canvass.html' width="100%" height="800px" frameBorder="0"></iframe>
+
+                </div>
+
+                <div class="tab-pane fade" id="nav-storage" role="tabpanel" aria-labelledby="nav-storage-tab">
+                  <iframe id='storage_form' src='./boot_file.html' width="100%" height="800px" frameBorder="0"
+                    allowTransparency="true"></iframe>
+                </div>
+
+                <div class="tab-pane fade" id="nav-calander" role="tabpanel" aria-labelledby="nav-calander-tab">
+                  <iframe id='calander_form_h' src='./calander.html' width="100%" height="800px" frameBorder="0"
+                    allowTransparency="true"></iframe>
+                </div>
+
+              </div>
+            </div>
+
+            <div class="col-3 d-none d-md-block">
+              <div class="row">
+                <iframe id='calander_form' src='./calander.html' width="100%" height="400px" frameBorder="0"
+                  allowTransparency="true"></iframe>
+              </div>
+              <div id='member_form' class="row scrollbar scrollbar-near-moon thin" width="100%" height="300px">
+                <table class="table table-condensed">
+                  <col width="50%">
+                  <col width="50%">
+                  <tbody id="userlist">
+                  </tbody>
+
+                </table>
+
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <div style="position: fixed; right: 0px; bottom: 0px; width: 80px; height: 80px;">
+    <iframe src='./jbtn2.html' width="100%" height="100%" frameBorder="0" allowTransparency="true" style="position: absolute; top:0px; left:0px;"></iframe>
+  </div>
+
+  <div class="container" id="loader_div">
+    <div class="row">
+      <div id="loader">
+        <div class="dot"></div>
+        <div class="dot"></div>
+        <div class="dot"></div>
+        <div class="dot"></div>
+        <div class="dot"></div>
+        <div class="dot"></div>
+        <div class="dot"></div>
+        <div class="dot"></div>
+        <div class="lading"></div>
+      </div>
+    </div>
+  </div>
+</body>
+
+</html>

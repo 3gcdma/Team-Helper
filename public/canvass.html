@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8" />
+    <title>Canvas tutorial</title>
+
+    <script type="text/javascript" src="js/jquery-3.3.1.js"></script>
+    <script type="text/javascript" src="js/farbtastic.js"></script>
+    <link rel="stylesheet" href="css/farbtastic.css" type="text/css" />
+    <!-- 합쳐지고 최소화된 최신 CSS -->
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.2/css/bootstrap.min.css">
+
+    <!-- 부가적인 테마 -->
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.2/css/bootstrap-theme.min.css">
+
+    <!-- 합쳐지고 최소화된 최신 자바스크립트 -->
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.2/js/bootstrap.min.js"></script>
+    <script type="text/javascript" charset="utf-8">
+        var color = '#000000';
+        $(document).ready(function () {
+            $('#picker').farbtastic(function (data) {
+                color = data;
+                document.getElementById("color").value = color;
+            });
+
+            //파일 불러오는 부분
+            $('#open').change(function () {
+                read_image(this);
+            });
+            $("#canvas").trigger("change");
+            //
+
+
+        });
+    </script>
+
+    <style type="text/css">
+        html,
+        body {
+            margin: 0px;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+        }
+    </style>
+</head>
+
+<body>
+    <script src="/__/firebase/5.0.0/firebase-app.js"></script>
+    <script src="/__/firebase/5.0.0/firebase-auth.js"></script>
+    <script src="/__/firebase/5.0.0/firebase-database.js"></script>
+    <script src="/__/firebase/init.js"></script>
+    <canvas id="canvas" width="100vh" height="100vh" style="cursor:crosshair"></canvas>
+
+
+    <!--예제-->
+
+    <div class="panel-group" id="accordion" role="tablist" aria-multiselectable="true" style="position: fixed; top: 0px; left:0px;">
+        <div class="panel panel-default">
+            <div class="panel-heading" role="tab" id="headingTwo">
+                <h4 class="panel-title">
+                    <a class="collapsed" data-toggle="collapse" data-parent="#accordion" href="#colla" aria-expanded="false" aria-controls="collapseTwo">
+                        팔레트
+                    </a>
+                </h4>
+            </div>
+            <div id="colla" class="panel-collapse collapse" role="tabpanel" aria-labelledby="headingTwo">
+                <div class="panel-body">
+
+                    <form action="" style="width: 295px;">
+                        <div class="form-item">
+                            <label for="color">Color:</label>
+                            <input type="text" id="color" name="color" value='#000000' />
+                        </div>
+                        <div id="picker"></div>
+                    </form>
+
+                    <br>
+                    <button onclick="clear_canvas()" data-toggle="tooltip">Clear</button>
+                    <br>
+                    <button onclick="set_eras()">지우개</button>
+                    <input type="range" min="2" max="25" value="5" id="Range">
+
+                    <!-- <a>속성 추가, 저장/불러오기 버튼 추가-->
+                    <br>
+                    <a id="saveimg"></a>
+                    <button onclick="save_canvas()">저장</button>
+                    <input type="file" id="open" accept="image/*" />
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+
+    <!--예제-->
+    <!---->
+
+    <script>
+        var auth = firebase.auth();
+        var data = firebase.database();
+        var canvas;
+        var context;
+        var point = {
+            possible: false,
+            x: -1,
+            y: -1
+        };
+        var target = 'CANVAS/';
+        var slider = document.getElementById("Range");
+        var depth = 5;
+
+        var user = new Object();
+        var uid;
+
+
+        slider.oninput = function () {
+            depth = this.value;
+        }
+
+        auth.onAuthStateChanged(function (user_) {
+            if (user_) {
+                uid = user_.uid
+                data.ref('USER/' + user_.uid + '/NOW_GROUP').on('child_changed', (snap) => {
+                    target = 'GROUP/' + snap.val() + '/CANVAS/';
+                    clear_canvas();
+                    data.ref(target).limitToLast(1000).on('child_changed', (snap) => {
+                        if (snap.child('type').val() == 1) {
+                            context.beginPath();
+                            context.moveTo(user[snap.key].x, user[snap.key].y);
+                            context.lineTo(snap.child('x').val(), snap.child('y').val());
+                            context.strokeStyle = snap.child('col').val();
+                            context.lineWidth = snap.child('dep').val();
+                            context.stroke();
+                            context.closePath();
+                        }
+                        user[snap.key] = { x: snap.child('x').val(), y: snap.child('y').val() };
+                    })
+
+
+                    data.ref(target).limitToLast(1000).on('child_added', (snap) => {
+                        user[snap.key] = { x: snap.child('x').val(), y: snap.child('y').val() };
+                        user.length++;
+                    })
+                });
+            }
+        });
+
+
+
+        window.onload = function () {
+            canvas = document.getElementById("canvas");
+            context = canvas.getContext("2d");
+            context.canvas.width = 1403;
+            context.canvas.height = 800;
+            
+            context.lineCap = "round";
+            user.length = 0;
+            if (detectmob() == false) {
+                canvas.addEventListener("mousedown", evnt);
+                canvas.addEventListener("mousemove", evnt);
+                canvas.addEventListener("mouseup", evnt);
+                canvas.addEventListener("mouseout", evnt);
+            }
+            else {
+                canvas.addEventListener("touchstart", start_touch, false);
+                canvas.addEventListener("touchmove", draw_touch, false);
+                canvas.addEventListener("touchend", end, false);
+            }
+        }
+
+        function detectmob() {
+            if (navigator.userAgent.match(/Android/i)
+                || navigator.userAgent.match(/webOS/i)
+                || navigator.userAgent.match(/iPhone/i)
+                || navigator.userAgent.match(/iPad/i)
+                || navigator.userAgent.match(/iPod/i)
+                || navigator.userAgent.match(/BlackBerry/i)
+                || navigator.userAgent.match(/Windows Phone/i)
+            ) {
+                return true;
+            }
+            else {
+                return false;
+            }
+        }
+
+        function set_eras() {
+            color = '#ffffff';
+            document.getElementById("color").value = color;
+        }
+
+        function writeDB(xx, yy, mod) {
+            data.ref(target + uid).set({
+                x: xx,
+                y: yy,
+                col: color,
+                dep: depth,
+                type: mod
+            });
+        };
+
+        /**이벤트 처리**/
+        function evnt(event) {
+            switch (event.type) {
+                case "mousedown":
+                    start_draw(event);
+                    break;
+                case "mousemove":
+                    if (point.possible)
+                        draw(event);
+                    break;
+                case "mouseup":
+                case "mouseout":
+                    fin_draw();
+            }
+        }
+
+        function start_draw(event) {
+            point.possible = true;
+            point.x = event.pageX - canvas.offsetLeft;
+            point.y = event.pageY - canvas.offsetTop;
+            writeDB(point.x, point.y, 0);
+        }
+
+        function draw(event) {
+            point.x = event.pageX - canvas.offsetLeft;
+            point.y = event.pageY - canvas.offsetTop;
+            writeDB(point.x, point.y, 1);
+        }
+
+        function fin_draw() {
+            point.possible = false;
+            point.x = -1;
+            point.y = -1;
+            writeDB(-1, -1, 0);
+        }
+
+        function clear_canvas() {
+            context.clearRect(0, 0, canvas.width, canvas.height);
+        }
+
+        function start_touch(e) {
+            e.preventDefault();
+            writeDB(e.touches[e.touches.length - 1].pageX, e.touches[e.touches.length - 1].pageY, 0);
+        }
+
+        function draw_touch(e) {
+            e.preventDefault();
+            writeDB(e.touches[e.touches.length - 1].pageX, e.touches[e.touches.length - 1].pageY, 1);
+        }
+
+        function end(e) {
+            e.preventDefault();
+            writeDB(-1, -1, 0);
+        }
+
+        //저장 함수
+        function save_canvas() {
+            var drawingfilename = "canvas" + Math.round((new Date()).getTime() / 1000) + ".png";
+            if (window.navigator.msSaveBlob) {
+                window.navigator.msSaveBlob(canvas.msToBlob(), drawingfilename);
+            } else {
+                var saveimg = document.getElementById('saveimg');
+                saveimg.setAttribute('download', drawingfilename);
+                saveimg.setAttribute('href', canvas.toDataURL("image/png").replace("image/png", "image/octet-stream"));
+                if (document.createEvent) {
+                    var event = document.createEvent('MouseEvents');
+                    event.initEvent('click', true, true);
+                    saveimg.dispatchEvent(event);
+                } else {
+                    saveimg.click();
+                }
+            }
+        }
+
+        //파일 읽어와서 캔버스에 나타내는 함수
+        function read_image(input) {
+            if (input.files && input.files[0]) {
+                if (!input.files[0].type.match('image/*')) {
+                    alert("이미지 파일만 선택할 수 있습니다. 다시 시도해주세요.");
+                    return;
+                }
+                else {
+                    var fr = new FileReader();
+                    fr.onload = function (event) {
+                        var img = new Image();
+                        img.src = event.target.result;
+                        img.onload = function () {
+                            context.drawImage(img, 0, 0);
+                        }
+                    };
+                    fr.readAsDataURL(input.files[0]);
+                }
+
+            }
+
+        }
+    </script>
+</body>
+
+</html>

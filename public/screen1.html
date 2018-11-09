@@ -1,0 +1,247 @@
+<!-- Demo version: 2017.08.12 -->
+
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+
+<head>
+    <meta charset="utf-8">
+    <title>Audio Chatting</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0">
+    <link rel="shortcut icon" href="demos/logo.png">
+    <link rel="stylesheet" href="demos/stylesheet.css">
+    <script src="demos/menu.js"></script>
+
+    <!-- FIRE BASE -->
+    <script src="/__/firebase/5.0.0/firebase-app.js"></script>
+    <script src="/__/firebase/5.0.0/firebase-auth.js"></script>
+    <script src="/__/firebase/5.0.0/firebase-database.js"></script>
+    <script src="/__/firebase/5.0.0/firebase-messaging.js"></script>
+    <script src="/__/firebase/5.0.0/firebase-functions.js"></script>
+    <script src="/__/firebase/init.js"></script>
+
+    <style>
+        body {
+            overflow: hidden;
+        }
+    </style>
+</head>
+
+<body>
+
+    <h1>
+
+        <input type="text" name="usernum" id="usernum" size="20" readonly="readonly" value="user 0" style=" font-family: Verdana; 
+                font-size : 18px;
+                text-align:center;
+                color:rgb(245, 22, 226);
+                float: right;
+                word-wrap: break-word;
+                height: 20px;
+                width: 80px;">
+        <div id='group_name'>-</div>
+
+    </h1>
+
+
+
+
+
+    </div>
+    <section class="make-center">
+        <form name="form1">
+            <input type="text" id="room-id" value="abcdef" style="display:none" autocorrect=off autocapitalize=off size=20>
+            <button id="open-room" style="display:none">Open Room</button>
+            <button id="join-room" style="display:none">Join Room</button>
+            <button id="openorjoinroom" style="display:none">Auto Open Or Join Room</button>
+        </form>
+        <br><br><br><br>
+        <div id="room-urls" style="text-align: center;display: none;background: #F1EDED;margin: 15px -10px;border: 1px solid rgb(189, 189, 189);border-left: 0;border-right: 0;"></div>
+
+        <div id="audios-container"></div>
+    </section>
+
+    <script src="dist/RTCMultiConnection.min.js"></script>
+    <script src="dev/adapter.js"></script>
+    <script src="https://rtcmulticonnection.herokuapp.com/socket.io/socket.io.js"></script>
+
+    <link rel="stylesheet" href="dev/getHTMLMediaElement.css">
+    <script src="dev/getHTMLMediaElement.js"></script>
+    <script>
+        // ......................................................
+        // .......................UI Code........................
+        // ......................................................
+        var gid;
+        window.onload = function () {
+            firebase.auth().onAuthStateChanged(function (user) {
+                if (user) {
+                    firebase.database().ref('USER/' + user.uid + '/NOW_GROUP').once('value').then((snap) => {
+                        roomid = snap.val().name;
+                        document.getElementById('room-id').value = roomid;
+                        document.getElementById('group_name').innerHTML = snap.val().code;
+                        document.form1.openorjoinroom.click();
+                    })
+                }
+            });
+
+        }
+
+        document.getElementById('open-room').onclick = function () {
+            disableInputButtons();
+            connection.open(document.getElementById('room-id').value, function () {
+                showRoomURL(connection.sessionid);
+            });
+        };
+
+        document.getElementById('join-room').onclick = function () {
+            disableInputButtons();
+            connection.join(document.getElementById('room-id').value);
+        };
+
+        document.getElementById('openorjoinroom').onclick = function () {
+            disableInputButtons();
+            connection.openOrJoin(document.getElementById('room-id').value, function (isRoomExist, roomid) {
+                showRoomURL(roomid);
+            });
+        };
+
+        // ......................................................
+        // ..................RTCMultiConnection Code.............
+        // ......................................................
+
+        var connection = new RTCMultiConnection();
+
+        // by default, socket.io server is assumed to be deployed on your own URL
+        connection.socketURL = 'https://rtcmulticonnection.herokuapp.com:443/';
+
+        connection.socketMessageEvent = 'audio-conference-demo';
+
+        connection.session = {
+            audio: true,
+            video: false
+        };
+
+        connection.mediaConstraints = {
+            audio: true,
+            video: false
+        };
+
+        connection.sdpConstraints.mandatory = {
+            OfferToReceiveAudio: true,
+            OfferToReceiveVideo: false
+        };
+
+        connection.audiosContainer = document.getElementById('audios-container');
+        connection.onstream = function (event) {
+            var width = parseInt(connection.audiosContainer.clientWidth / 2) - 20;
+            var mediaElement = getHTMLMediaElement(event.mediaElement, {
+                title: 'Access',
+                buttons: ['full-screen'],
+                width: '0px',
+                heigth: '100px',
+                showOnMouseEnter: true
+            });
+
+            connection.audiosContainer.appendChild(mediaElement);
+
+            setTimeout(function () {
+                mediaElement.media.play();
+            }, 5000);
+
+            mediaElement.id = event.streamid;
+        };
+
+        connection.onstreamended = function (event) {
+            var mediaElement = document.getElementById(event.streamid);
+            if (mediaElement) {
+                mediaElement.parentNode.removeChild(mediaElement);
+            }
+        };
+
+        function disableInputButtons() {
+            document.getElementById('openorjoinroom').disabled = true;
+            document.getElementById('open-room').disabled = true;
+            document.getElementById('join-room').disabled = true;
+            document.getElementById('room-id').disabled = true;
+        }
+
+        // ......................................................
+        // ......................Handling Room-ID................
+        // ......................................................
+
+        function showRoomURL(roomid) {
+            var roomHashURL = '#' + roomid;
+            var roomQueryStringURL = '?roomid=' + roomid;
+
+            var html = '<font size="5" color="gray" style="text-align: center">' + roomHashURL + '</font>';
+
+            var roomURLsDiv = document.getElementById('room-urls');
+            roomURLsDiv.innerHTML = html;
+
+            roomURLsDiv.style.display = 'block';
+        }
+
+        (function () {
+            var params = {},
+                r = /([^&=]+)=?([^&]*)/g;
+
+            function d(s) {
+                return decodeURIComponent(s.replace(/\+/g, ' '));
+            }
+            var match, search = window.location.search;
+            while (match = r.exec(search.substring(1)))
+                params[d(match[1])] = d(match[2]);
+            window.params = params;
+        })();
+
+        var roomid = '';
+        var usercnt = 0;
+
+        if (localStorage.getItem(connection.socketMessageEvent)) {
+            roomid = localStorage.getItem(connection.socketMessageEvent);
+
+        } else {
+            roomid = opener.document.getElementById("roomidnum").value;
+        }
+
+        document.getElementById('usernum').value = usercnt;
+
+        document.getElementById('room-id').value = roomid;
+
+        document.getElementById('room-id').onkeyup = function () {
+            localStorage.setItem(connection.socketMessageEvent, connection.token()/*document.getElementById("room-id").value*/);
+        };
+
+        var hashString = location.hash.replace('#', '');
+        if (hashString.length && hashString.indexOf('comment-') == 0) {
+            hashString = '';
+        }
+
+        var roomid = params.roomid;
+        if (!roomid && hashString.length) {
+            roomid = hashString;
+        }
+
+        if (roomid && roomid.length) {
+            document.getElementById('room-id').value = roomid;
+            localStorage.setItem(connection.socketMessageEvent, roomid);
+
+            // auto-join-room
+            (function reCheckRoomPresence() {
+                connection.checkPresence(roomid, function (isRoomExist) {
+                    if (isRoomExist) {
+                        connection.join(roomid);
+                        return;
+                    }
+
+                    setTimeout(reCheckRoomPresence, 5000);
+                });
+            })();
+
+            disableInputButtons();
+        }
+
+    </script>
+
+</body>
+
+</html>

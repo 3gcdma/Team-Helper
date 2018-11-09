@@ -1,0 +1,149 @@
+<!doctype html>
+<!-- See http://www.firepad.io/docs/ for detailed embedding docs. -->
+<html>
+
+<head>
+  <meta charset="utf-8" />
+  <!-- Firebase -->
+  <script src="/__/firebase/5.0.0/firebase-app.js"></script>
+  <script src="/__/firebase/5.0.0/firebase-auth.js"></script>
+  <script src="/__/firebase/5.0.0/firebase-storage.js"></script>
+  <script src="/__/firebase/5.0.0/firebase-database.js"></script>
+  <script src="/__/firebase/init.js"></script>
+
+  <!-- ACE and its JavaScript mode and theme files -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.4.1/ace.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.4.1/mode-c_cpp.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.4.1/mode-javascript.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.4.1/mode-swift.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.4.1/mode-css.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.4.1/mode-golang.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.4.1/mode-html.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.4.1/mode-java.js"></script>
+
+  <!-- Firepad -->
+  <link rel="stylesheet" href="https://cdn.firebase.com/libs/firepad/1.4.0/firepad.css" />
+  <script src="https://cdn.firebase.com/libs/firepad/1.4.0/firepad.min.js"></script>
+
+  <style>
+    html {
+      height: 100%;
+    }
+
+    body {
+      margin: 0;
+      height: 95%;
+      position: relative;
+    }
+
+    /* Height / width / positioning can be customized for your use case.
+       For demo purposes, we make firepad fill the entire browser. */
+
+    #firepad-container {
+      width: 100%;
+      height: 100%;
+    }
+
+    a.powered-by-firepad {
+      display: none;
+    }
+  </style>
+</head>
+
+<body onload="init()">
+  <select onchange="modeselct(this.value)">
+    <option value="plain_text">Plain</option>
+    <option value="c_cpp">C++</option>
+    <option value="javascript">JS</option>
+    <option value="swift">swift</option>
+    <option value="css">css</option>
+    <option value="golang">golang</option>
+    <option value="html">html</option>
+    <option value="java">java</option>
+  </select>
+
+  <select onchange="modtheme(this.value)">
+    <option value="textmate">default</option>
+    <option value="xcode">xcode</option>
+    <option value="twilight">twilight</option>
+    <option value="terminal">terminal</option>
+    <option value="monokai">monokai</option>
+    <option value="iplastic">iplastic</option>
+    <option value="eclipse">eclipse</option>
+    <option value="cobalt">cobalt</option>
+    <option value="chaos">chaos</option>
+  </select>
+  <button onclick="save_file()">save</button>
+  <div id="firepad-container"></div>
+  <script>
+    var session;
+    var editor;
+    var auth = firebase.auth();
+    var data = firebase.database();
+    var gid = '';
+    function init() {
+      //// Initialize Firebase.
+      //// TODO: replace with your Firebase project configuration.
+
+      //// Get Firebase Database reference.
+
+
+      var firepadRef;
+
+      //// Create ACE
+      editor = ace.edit("firepad-container");
+      editor.setTheme("ace/theme/textmate");
+      session = editor.getSession();
+      session.setUseWrapMode(true);
+      session.setUseWorker(false);
+      session.setMode("ace/mode/plain_text");
+
+      //// Create Firepad.
+      
+      auth.onAuthStateChanged(function (user) {
+        if (user) {
+          data.ref('USER/' + auth.currentUser.uid).once('value').then((snap) => {
+            gid = snap.val().NOW_GROUP.name;
+            firepadRef = data.ref('GROUP/' + gid + '/PAD')
+            var firepad = Firepad.fromACE(firepadRef, editor, {
+              defaultText: 'type'
+            });
+          });
+        }
+      });
+    }
+
+    function modeselct(a) {
+      session.setMode("ace/mode/" + a);
+    }
+
+    function modtheme(a) {
+      editor.setTheme("ace/theme/" + a);
+    }
+
+    function save_file() {
+      var textToWrite = editor.getValue();
+      textToWrite = textToWrite.replace(/\n/g, "\r\n");
+      var textFileAsBlob = new Blob([textToWrite], { type: 'text/plain' });
+      var fileNameToSaveAs = "firepad_" + auth.currentUser.uid + '.txt';
+
+      var storageRef = firebase.storage().ref();
+
+
+      storageRef.child('PADD/' + fileNameToSaveAs).put(textFileAsBlob).then(function (snapshot) {
+        snapshot.ref.getDownloadURL().then(function (url) {
+          data.ref('USER/' + auth.currentUser.uid + '/File/' + snapshot.metadata.generation).set({
+            name: fileNameToSaveAs,
+            date: snapshot.metadata.updated,
+            size: snapshot.metadata.size,
+            url: url
+          });
+        });
+      });
+
+    }
+
+  </script>
+</body>
+
+</html>

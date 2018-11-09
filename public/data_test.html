@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>
+        파일관리
+    </title>
+
+</head>
+
+<body>
+
+
+    <script src="/__/firebase/5.0.0/firebase-app.js"></script>
+    <script src="/__/firebase/5.0.0/firebase-auth.js"></script>
+    <script src="/__/firebase/5.0.0/firebase-storage.js"></script>
+    <script src="/__/firebase/5.0.0/firebase-database.js"></script>
+    <script src="/__/firebase/init.js"></script>
+
+    <script>
+        var data = firebase.database();
+        var gid = '';
+
+        window.onload = () => {
+            data.ref('GROUP/').once('value').then((snap) => {
+                snap.forEach(function (child) { // 아래 멤버들 순회하는 함수임
+                    gid = 'GROUP/' + child.key;
+                    console.log('관리자 :' + child.val().master);
+                    console.log('마지막메시지 : ' + new Date(child.val().lastMessage));
+                    /*status 에 접근하는 방법은 두가지가 있다.*/
+                    data.ref(gid).once('value').then((snap) => {
+                        console.log('그룹데이터 : '+snap.val().status.img);
+                    })
+                    
+                    data.ref(gid + '/status/').once('value').then((snap) => {
+                        console.log('그룹데이터 : '+snap.val().name);
+                    })
+                    /*여기까지 이렇게 두가지*/
+                    
+                    data.ref(gid+'/loginlist/').once('value').then((snap) =>{
+                        snap.forEach((child)=>{
+                            console.log("현재 접속자 이름은 " + child.val().name);
+                        })
+                    })
+
+                    data.ref(gid + '/member/').once('value').then((snap) => {
+                        snap.forEach((child) => { 
+                            // 이런식으로 모든 멤버 순회 가능
+                            console.log('그룹멤버 : '+child.val().name); 
+                        })
+                    })
+
+                    data.ref(gid + '/want/').once('value').then((snap) => {
+                        snap.forEach((child) => { 
+                            // 이런식으로 모든 멤버 순회 가능
+                            console.log('멤버 희망자 : '+child.val().name); 
+                            console.log("유저아이디는 : " + child.key);
+                        })
+                    })
+
+                });
+            })
+        }
+
+    </script>
+</body>
+
+</html>

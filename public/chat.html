@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+
+    <script type="text/javascript" src="./js/jquery-3.3.1.js"></script>
+    <!-- 합쳐지고 최소화된 최신 CSS -->
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.2/css/bootstrap.min.css">
+
+    <!-- 부가적인 테마 -->
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.2/css/bootstrap-theme.min.css">
+    <link rel="stylesheet" href="./css/scroll.css">
+
+    <!-- 합쳐지고 최소화된 최신 자바스크립트 -->
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.2/js/bootstrap.min.js"></script>
+
+    <script src="/__/firebase/5.0.0/firebase-app.js"></script>
+    <script src="/__/firebase/5.0.0/firebase-auth.js"></script>
+    <script src="/__/firebase/5.0.0/firebase-database.js"></script>
+    <script src="/__/firebase/init.js"></script>
+
+    <style>
+        html,
+        body {
+            height: 100%;
+        }
+
+        .container-fluid {
+            height: 100%;
+            padding: 0px;
+            /* don't show content that exceeds my height */
+        }
+
+        .input-group {
+            position: fixed;
+            bottom: 1%;
+            width: 100%;
+            padding-left: 1%;
+            padding-right: 1%;
+        }
+
+        .text-area {
+            width: 100%;
+            height: 94%;
+            overflow-y: scroll;
+            margin-right: 0px;
+        }
+
+        .message-box {
+            padding: 5px;
+            position: relative;
+            border-radius: 10px;
+            width: 96%;
+            height: auto;
+            min-height: 20px;
+            margin: 0.5%;
+            margin-bottom: 20px;
+            color: #fff;
+            border: 3px solid #fff;
+        }
+
+        .user-information {
+            position: relative;
+            float: left;
+            height: auto;
+            width: 75px;
+            margin-left: 5px;
+            overflow: hidden;
+        }
+
+        .messgae-text {
+            margin-left: 83px;
+            position: relative;
+            height: 100%;
+            width: 70%;
+            margin-right: 0px;
+            word-wrap: break-word;
+        }
+
+        .show_time {
+            position: absolute;
+            top: 6px;
+            right: 8px;
+        }
+    </style>
+
+</head>
+
+<body STYLE="background-color:transparent">
+    <div class="container-fluid" width="100%">
+        <div class="text-area scrollbar scrollbar-near-moon thin" id="rom">
+        </div>
+        <div class="input-group">
+            <input id='input_message' type="text" class="form-control" placeholder="Send Message..." style="background: rgba(0, 0, 0, 0);color : #fff">
+            <span class="input-group-btn">
+                <button id='btn' class="btn btn-default" type="button" style="background: rgba(0, 0, 0, 0.1);color : #fff">전송</button>
+            </span>
+        </div>
+        <!-- /input-group -->
+    </div>
+
+    <script>
+        var doc = document.getElementById("rom");
+        var doc_temp;
+        var auth = firebase.auth();
+        var data = firebase.database();
+        var target = '';
+
+
+
+        window.onload = function () {
+            auth.onAuthStateChanged(function (user_) {
+                if (user_) {
+                    data.ref('USER/' + auth.currentUser.uid + '/NOW_GROUP').once('value').then((snap) => {
+                        gid = snap.val().name;
+                        target = 'GROUP/' + gid + '/CHAT/';
+                        data.ref(target).limitToLast(1000).on('child_added', (snap) => {
+                            input_text(snap.val().name, snap.val().text, snap.val().time);
+                        })
+                    });
+                }
+            });
+        }
+
+        function send_message() {
+            var text = $('#input_message').val()
+            if (text != '') {
+                var time = Date.now();
+                data.ref(target + time).set({
+                    name: auth.currentUser.displayName,
+                    time: time,
+                    text: text
+                });
+                $('#input_message').val('');
+            }
+        }
+
+
+
+        $(document).ready(function () {
+            $('#btn').click(send_message);
+            $("#input_message").keyup(function (e) { if (e.keyCode == 13) send_message(); });
+        })
+
+        function input_text(who, text, time) {
+            $("#rom").append('<div class="message-box"><div class="user-information">' + who + '</div><div class="messgae-text">' + text + '</div><div class = "show_time">' + formatAMPM(time) + '</div></div>').scrollTop($("#rom").prop('scrollHeight'));
+        }
+
+        function formatAMPM(date) {
+            var dt = new Date(date);
+            var hours = dt.getHours();
+            var minutes = dt.getMinutes();
+            var ampm = hours >= 12 ? 'PM' : 'AM';
+            hours = hours % 12;
+            hours = hours ? hours : 12; // the hour '0' should be '12'
+            minutes = minutes < 10 ? '0' + minutes : minutes;
+            var strTime = hours + ':' + minutes + ' ' + ampm;
+            return strTime;
+        }
+    </script>
+</body>
+
+</html>

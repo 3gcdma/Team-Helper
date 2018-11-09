@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html>
+<title>
+    파일관리
+</title>
+
+<head>
+    <script type="text/javascript" src="./js/jquery-3.3.1.js"></script>
+    <!-- 합쳐지고 최소화된 최신 CSS -->
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.2/css/bootstrap.min.css">
+
+    <!-- 부가적인 테마 -->
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.2/css/bootstrap-theme.min.css">
+
+    <link rel="stylesheet" href="./css/scroll.css">
+    <link rel="stylesheet" href="./css/main.css">
+    <!-- 합쳐지고 최소화된 최신 자바스크립트 -->
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.2/js/bootstrap.min.js"></script>
+    <script src="/__/firebase/5.0.0/firebase-app.js"></script>
+    <script src="/__/firebase/5.0.0/firebase-auth.js"></script>
+    <script src="/__/firebase/5.0.0/firebase-storage.js"></script>
+    <script src="/__/firebase/5.0.0/firebase-database.js"></script>
+    <script src="/__/firebase/init.js"></script>
+    <style>
+        html {
+            overflow-y: scroll;
+        }
+
+        table {
+            color: white;
+        }
+
+        .fix_loc {
+            position: fixed;
+        }
+    </style>
+</head>
+
+<body class="scrollbar scrollbar-near-moon thin" STYLE="background-color:transparent">
+
+
+    <table class="table table-hover fix_loc" style="width: 100%; margin-left:0px;margin-right:0px;top:0px;background-color: rgb(110, 122, 128)">
+        <col width="60%">
+        <col width="20%">
+        <col width="20%">
+        <thead>
+            <tr>
+                <th scope="col">파일이름</th>
+                <th scope="col">저장시간</th>
+                <th scope="col">크기</th>
+            </tr>
+        </thead>
+    </table>
+    <table class="table table-hover" id='mytable' style="width: 100%;  margin-left:0px;margin-right:0px;margin-top:45px">
+        <col width="60%">
+        <col width="20%">
+        <col width="20%">
+        <tbody>
+        </tbody>
+    </table>
+
+
+    <button id="plus_button" type="button" class="btn btn-default" style="position: fixed;bottom:20px;right:20px; border-radius: 100%;">
+        <span class="glyphicon glyphicon-plus" aria-hidden="true"></span>
+    </button>
+
+    <script>
+        var storageRef = firebase.storage().ref();
+        var auth = firebase.auth();
+        var data = firebase.database();
+        var gid;
+
+        auth.onAuthStateChanged(function (user) {
+            if (user) {
+                data.ref('USER/' + user.uid + '/NOW_GROUP').once('value').then((snap) => {
+                    gid = snap.val().name;
+                    data.ref('GROUP/' + gid + '/File/').limitToLast(1000).on('child_added', function (childSnapshot) {
+                        insert_table(childSnapshot.val().url, childSnapshot.val().name, childSnapshot.val().date, childSnapshot.val().size, childSnapshot.val().uploader, childSnapshot.val().summary);
+                    });
+                })
+            }
+        })
+
+
+        $(document).ready(function () {
+            $('#plus_button').click(hello);
+
+            $("tbody").on('click', 'tr', function () {
+                var str = $(this).attr('value');
+                var tt = $(this);
+                document.getElementById('FILE_NAME').innerHTML = '<h4 class="modal-title" id="exampleModalLabel">' + tt.children()[0].innerText + '</h4>';
+                document.getElementById('FILE_SUMMARY').innerHTML = "<label for='sel2'>" + '업로더 : '+$(this).attr('uploader') + '<br>파일설명 : '+$(this).attr('summary') + "</label>";
+                document.getElementById('download_button').onclick = function () { window.location.href = str; $("#DETAIL_FILE").modal('hide'); };
+                document.getElementById('remove_button').onclick = function () {
+                    var stt = 'FILE/' + gid + '/' + tt.children()[0].innerText;
+                    storageRef.child(stt).getMetadata().then(function (metadata) {
+                        var string = 'GROUP/' + gid + '/File/' + metadata.generation;
+                        data.ref(string).remove();
+                    })
+                    storageRef.child(stt).delete().then(function () { // 디비 제거 기능 추가
+                    }).catch(function (error) {
+                    })
+                    tt.remove();
+                    $("#DETAIL_FILE").modal('hide');
+                };
+                document.getElementById('copy_to_link').onclick = function () { var d = document.getElementById('copy_area'); d.value = str; d.select(); document.execCommand("copy"); alert('복사성공'); $("#DETAIL_FILE").modal('hide'); };
+
+                $("#DETAIL_FILE").modal('show');
+            });
+
+            //파일추가 부분
+            $("#fileInput").on('change', function () {  // 값이 변경되면
+                if (window.FileReader) {  // modern browser
+                    var filename = $(this)[0].files[0].name+'.data';
+                } else {  // old IE
+                    var filename = $(this).val().split('/').pop().split('\\').pop();  // 파일명만 추출
+                }
+                $("#userfile").val(filename);
+                var metadata = {
+                    'contentType': $(this)[0].files[0].type
+                };
+
+                /*중복데이터 확인*/
+                data.ref('GROUP/' + gid + '/File/').once('value').then((snap) => {
+                    snap.forEach((child) => {
+                        if (child.val().name == filename)
+                            filename += '*'
+                    })
+                }).then(() => {
+                    storageRef.child('FILE/' + gid + '/' + filename).put($(this)[0].files[0], metadata).then(function (snapshot) {
+                        snapshot.ref.getDownloadURL().then(function (url) {
+                            data.ref('GROUP/' + gid + '/File/' + snapshot.metadata.generation).set({
+                                name: filename,
+                                date: snapshot.metadata.updated,
+                                uploader: auth.currentUser.displayName,
+                                summary: $('#summary').val(),
+                                size: snapshot.metadata.size,
+                                url: url
+                            });
+                            $("#ADD_FILE").modal('hide');
+                        });
+                    }).catch(function (error) {
+                        console.error('Upload failed:', error);
+                    });
+                })
+            });
+        });
+
+        function insert_table(href, what, when, how, who, sum) {
+            var ss = when.substr(0, when.lastIndexOf('T'));
+            var sss = when.substr(when.lastIndexOf('T') + 1, 8);
+            $('#mytable > tbody:last-child').append('<tr value="' + href + '" uploader=' + who + ' summary='+ sum+'>' + '<td>' + what + '</td><td>' + ss + '\n' + sss + '</td><td>' + how + '</td></tr>');
+        }
+
+        function hello() {
+            $("#ADD_FILE").modal('show');
+        }
+    </script>
+
+
+    <!--모달-->
+    <div class="modal fade" id="ADD_FILE" tabindex="-1" role="dialog" aria-labelledby="exampleModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h4><label for="comment">파일추가</label></h4>
+                </div>
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label for="comment">설명</label>
+                        <textarea class="form-control" rows="5" id="summary"></textarea>
+                        <br>
+                        <input id="fileInput" filestyle="" type="file" data-class-button="btn btn-default" data-class-input="form-control" data-button-text=""
+                            data-icon-name="fa fa-upload" class="form-control" tabindex="-1" style="position: absolute; clip: rect(0px 0px 0px 0px);">
+                        <div class="bootstrap-filestyle input-group">
+                            <input type="text" id="userfile" class="form-control" name="userfile" disabled="">
+                            <span class="group-span-filestyle input-group-btn" tabindex="0">
+                                <label for="fileInput" class="btn btn-default ">
+                                    <span class="glyphicon glyphicon-plus"></span>
+                                </label>
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+    <!--파일 세부정보-->
+    <div class="modal fade" id="DETAIL_FILE" tabindex="-1" role="dialog" aria-labelledby="exampleModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <div id="FILE_NAME"></div>
+                </div>
+                <div class="modal-body">
+                    <form>
+                        <div id='FILE_SUMMARY' class="form-group">
+                            <label for='sel2'></label>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <input type='text' id='copy_area' style="position:absolute;left:-9999px;">
+                    <button type="button" class="btn btn-primary" id='copy_to_link'>링크복사</button>
+                    <button type="button" class="btn btn-primary" id='download_button'>다운로드</button>
+                    <button type="button" class="btn btn-primary" id="remove_button">제거</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</body>
+
+</html>
